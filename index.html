@@ -224,10 +224,18 @@ function openModal(it){
   $('#m-play-area').innerHTML='';
   $('#modal').classList.add('open');document.body.style.overflow='hidden';
 }
+function mountPlayer(sb){
+  const s=sb?' sandbox="allow-scripts allow-same-origin allow-presentation allow-forms"':'';
+  $('#m-play-area').innerHTML=`<div class="vwrap"><iframe src="${cur.embed}"${s} allow="autoplay; fullscreen; encrypted-media; picture-in-picture" frameborder="0"></iframe></div>`+(sb?'<p style="text-align:right;margin-top:6px"><a href="#" id="p-retry" style="color:var(--mut);font-size:12px">Player não carregou? Reabrir sem bloqueador</a></p>':'');
+  if(sb){const r=$('#p-retry');r.onclick=e=>{e.preventDefault();mountPlayer(false);ppShow('Player reaberto sem bloqueador — popups podem aparecer neste link.')}}
+}
 function playIt(){
   if(!cur)return;
   if(!cur.embed){$('#m-play-area').innerHTML='<p class="warn">Este item ainda não tem link de vídeo — adicione o link no <b>Admin</b>.</p>';return}
-  $('#m-play-area').innerHTML=`<div class="vwrap"><iframe src="${cur.embed}" sandbox="allow-scripts allow-same-origin allow-presentation" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen frameborder="0" referrerpolicy="origin"></iframe></div>`;
+  if(!/^https?:\/\//i.test(cur.embed)){$('#m-play-area').innerHTML='<p class="warn">Link de vídeo inválido — precisa começar com <b>https://</b>. Corrija no Admin.</p>';return}
+  mountPlayer(true);
+  setTimeout(()=>{const f=document.querySelector('.vwrap iframe');if(!f)return;
+    try{const h=f.contentWindow.location.href;if(/sanbox|404|Not Found/i.test(h)){mountPlayer(false);ppShow('O player quebrou com o bloqueador — reabri sem bloqueio.')}}catch(e){}},3500);
 }
 $('#m-play').onclick=playIt;
 $('#m-list').onclick=()=>{toggleList(cur);openModal(cur)};
