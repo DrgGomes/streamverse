@@ -96,7 +96,7 @@ label{display:block;font-size:12px;color:var(--mut);margin:10px 0 5px;font-weigh
       </div>
       <div>
         <label>Link do vídeo (vira player embed)</label><input id="f-embed" placeholder="cole o link do YouTube / Drive...">
-        <p class="hint">YouTube (watch, youtu.be, Shorts) e Google Drive são convertidos para embed automaticamente.</p>
+        <p class="hint">YouTube (watch, youtu.be, Shorts) e Google Drive são convertidos para embed automaticamente. O link precisa começar com https://</p>
         <label>Pôster (URL)</label><input id="f-poster" placeholder="preenchido pelo TMDB">
         <label>Fundo / backdrop (URL)</label><input id="f-backdrop" placeholder="preenchido pelo TMDB">
       </div>
@@ -207,8 +207,10 @@ function resetForm(){
 }
 function saveVideo(){
   const t=$('#f-title').value.trim();if(!t)return alert('Informe pelo menos o título (busque no TMDB ou digite).');
+  const embRaw=$('#f-embed').value.trim();
+  if(embRaw&&!/^https?:\/\//i.test(embRaw))return alert('O link do vídeo precisa começar com https:// — cole o link completo.');
   const it={id:editId!==null?getCat()[editId].id:'v'+Date.now(),title:t,year:$('#f-year').value,rating:parseFloat($('#f-rating').value)||0,
-    genre:$('#f-genre').value.trim(),embed:toEmbed($('#f-embed').value),poster:$('#f-poster').value.trim(),backdrop:$('#f-backdrop').value.trim(),
+    genre:$('#f-genre').value.trim(),embed:toEmbed(embRaw),poster:$('#f-poster').value.trim(),backdrop:$('#f-backdrop').value.trim(),
     synopsis:$('#f-syn').value.trim(),cats:[...document.querySelectorAll('.chks input:checked')].map(c=>c.value)};
   const c=getCat();if(editId!==null)c[editId]=it;else c.unshift(it);
   setCat(c);resetForm();renderList();alert('Salvo ✓ — abra o site para ver.');
