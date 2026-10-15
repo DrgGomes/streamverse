@@ -82,6 +82,11 @@ main{padding-bottom:30px}
 .warn{color:#ffb454;font-size:14px}
 .vwrap{position:relative;padding-top:56.25%;border-radius:10px;overflow:hidden;margin-top:6px}
 .vwrap iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+#pp{position:fixed;inset:0;z-index:999;display:none;background:rgba(3,6,12,.9);align-items:center;justify-content:center;text-align:center;padding:20px}
+#pp.open{display:flex}
+.ppbox{background:var(--panel);border:1px solid #1d2b4a;border-radius:14px;padding:26px;max-width:420px}
+.ppbox b{color:#ffb454}
+.ppbox button{margin-top:14px;background:linear-gradient(90deg,var(--acc),var(--acc2));color:#04101f;border:none;border-radius:8px;padding:10px 22px;font-weight:800;cursor:pointer}
 .ov-head{width:min(1100px,94vw);display:flex;justify-content:space-between;align-items:center;padding:6px 4px 18px}
 .ov-head h3{font-size:22px}
 #ovx{background:rgba(255,255,255,.08);border:1px solid #2a3a5e;color:#fff;border-radius:8px;padding:8px 16px;cursor:pointer}
@@ -145,6 +150,12 @@ footer a:hover{color:#fff}
 </div></div>
 
 <div id="ov"><div class="ov-head"><h3 id="ov-t"></h3><button id="ovx">✕ Fechar</button></div><div class="grid" id="ov-g"></div></div>
+
+<div id="pp"><div class="ppbox">
+  <h3 style="margin-bottom:8px">🛡️ Anúncio bloqueado</h3>
+  <p id="pp-msg" style="color:var(--mut);font-size:14px;line-height:1.5"></p>
+  <button id="pp-ok">Continuar assistindo</button>
+</div></div>
 
 <script src="data.js"></script>
 <script>
@@ -216,7 +227,7 @@ function openModal(it){
 function playIt(){
   if(!cur)return;
   if(!cur.embed){$('#m-play-area').innerHTML='<p class="warn">Este item ainda não tem link de vídeo — adicione o link no <b>Admin</b>.</p>';return}
-  $('#m-play-area').innerHTML=`<div class="vwrap"><iframe src="${cur.embed}" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen frameborder="0"></iframe></div>`;
+  $('#m-play-area').innerHTML=`<div class="vwrap"><iframe src="${cur.embed}" sandbox="allow-scripts allow-same-origin allow-presentation" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen frameborder="0" referrerpolicy="origin"></iframe></div>`;
 }
 $('#m-play').onclick=playIt;
 $('#m-list').onclick=()=>{toggleList(cur);openModal(cur)};
@@ -234,6 +245,50 @@ function closeOv(){$('#ov').classList.remove('open');document.body.style.overflo
 $('#ovx').onclick=closeOv;
 $('#ov').addEventListener('click',e=>{if(e.target.id==='ov')closeOv()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeOv()}});
+
+/* ===== Anti-popup: bloqueia aberturas vindas do player e avisa ===== */
+let ppT=null;
+function ppShow(msg){
+  $('#pp-msg').textContent=msg;
+  $('#pp').classList.add('open');
+  clearTimeout(ppT);ppT=setTimeout(()=>$('#pp').classList.remove('open'),6000);
+}
+$('#pp-ok').onclick=()=>{$('#pp').classList.remove('open');clearTimeout(ppT)};
+const _open=window.open.bind(window);
+window.open=function(u){ppShow('O player tentou abrir uma janela de propaganda — foi bloqueada automaticamente. Se o vídeo não carregar, feche e aperte ▶ de novo.');return null};
+document.addEventListener('click',e=>{const a=e.target.closest&&e.target.closest('a[target="_blank"]');if(a){e.preventDefault();ppShow('Pop-up de propaganda bloqueado.')}},true);
+
+/* ===== Modo Smart TV (controle remoto) ===== */
+let tvOn=false,tvIdx=0;
+function tvTargets(){
+  const t=[];
+  $$('#top-nav a').forEach(a=>t.push({el:a,n:'nav '+a.textContent}));
+  $$('.cards .card, .grid .card').forEach(c=>t.push({el:c,n:c.querySelector('.ct')?c.querySelector('.ct').textContent:'título'}));
+  $$('.harr').forEach(b=>t.push({el:b,n:'seta do banner'}));
+  $$('.arrows button').forEach(b=>t.push({el:b,n:'seta da fileira'}));
+  t.push({el:$('#q'),n:'busca'});
+  t.push({el:$('#h-play'),n:'PLAY do banner'});
+  return t.filter(x=>x.el&&x.el.offsetParent!==null);
+}
+function tvPaint(){tvTargets().forEach((x,i)=>x.el.classList.toggle('tv-focus',tvOn&&i===tvIdx))}
+function tvGo(d){const t=tvTargets();if(!t.length)return;tvIdx=(tvIdx+d+t.length)%t.length;tvPaint();t[tvIdx].el.scrollIntoView({block:'nearest',behavior:'smooth'})}
+function tvOk(){const t=tvTargets();if(!t.length)return;const x=t[tvIdx];if(x.el===$('#q')){x.el.focus();return}x.el.click()}
+document.addEventListener('keydown',e=>{
+  const m=$('#modal').classList.contains('open'),ov=$('#ov').classList.contains('open');
+  if(e.key==='Escape'){closeModal();closeOv();tvPaint();return}
+  if(!tvOn){if(e.key==='t'&&e.target.tagName!=='INPUT'&&e.target.tagName!=='TEXTAREA'){tvOn=true;tvIdx=0;tvPaint();e.preventDefault()}return}
+  if(e.target.tagName==='INPUT'&&e.key!=='Escape'&&e.key!=='Enter')return;
+  const k=e.key;
+  if(k==='ArrowRight'||k==='ArrowDown'){e.preventDefault();tvGo(1)}
+  else if(k==='ArrowLeft'||k==='ArrowUp'){e.preventDefault();tvGo(-1)}
+  else if(k==='Enter'){e.preventDefault();tvOk()}
+  else if(k==='Backspace'&&!m&&!ov){e.preventDefault();tvOn=false;tvPaint();window.scrollTo({top:0,behavior:'smooth'})}
+  else if(k.toLowerCase&&k.toLowerCase()==='t'){tvOn=false;tvPaint()}
+});
+const tvStyle=document.createElement('style');
+tvStyle.textContent='.tv-focus{outline:3px solid var(--acc2)!important;outline-offset:3px;border-radius:10px;transform:scale(1.05)}';
+document.head.appendChild(tvStyle);
+window.addEventListener('load',()=>{try{const b=document.createElement('div');b.textContent='Dica: aperte T no controle para ativar o modo TV (setas navegam, OK/Enter abre, voltar sai).';b.style.cssText='position:fixed;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(13,20,36,.95);border:1px solid #223052;color:var(--mut);font-size:12px;padding:8px 16px;border-radius:20px;z-index:90';document.body.appendChild(b);setTimeout(()=>b.remove(),9000)}catch(e){}});
 
 $('#q').addEventListener('input',e=>{
   const v=e.target.value.trim();
